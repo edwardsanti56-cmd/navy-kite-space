@@ -1,10 +1,10 @@
 import { Heart, MessageCircle, Share2, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface PostCardProps {
+  postId: string;
   username: string;
   avatar: string;
   timestamp: string;
@@ -13,9 +13,12 @@ interface PostCardProps {
   likes: number;
   comments: number;
   isVideo?: boolean;
+  isLiked?: boolean;
+  onLike?: (postId: string, isLiked: boolean) => void;
 }
 
 export const PostCard = ({
+  postId,
   username,
   avatar,
   timestamp,
@@ -24,13 +27,13 @@ export const PostCard = ({
   likes,
   comments,
   isVideo = false,
+  isLiked = false,
+  onLike,
 }: PostCardProps) => {
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(likes);
-
   const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
+    if (onLike) {
+      onLike(postId, isLiked);
+    }
   };
 
   return (
@@ -93,7 +96,7 @@ export const PostCard = ({
 
         {/* Stats & Caption */}
         <p className="font-semibold text-foreground mb-2">
-          {likeCount.toLocaleString()} likes
+          {likes.toLocaleString()} likes
         </p>
         <p className="text-foreground">
           <span className="font-semibold mr-2">{username}</span>

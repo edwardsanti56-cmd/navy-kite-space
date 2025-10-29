@@ -4,28 +4,82 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Camera } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import profileAvatar from "@/assets/profile-avatar.jpg";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function EditProfile() {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    username: "alex_creative",
-    fullName: "Alex Johnson",
-    bio: "Creative designer & photographer 📸✨\nCapturing moments that matter",
-    website: "alexcreative.com",
+    username: "",
+    fullName: "",
+    bio: "",
+    website: "",
   });
 
-  const handleSave = () => {
-    toast.success("Profile updated successfully!");
-    navigate("/profile");
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      
+      setFormData({
+        username: data.username || '',
+        fullName: data.full_name || '',
+        bio: data.bio || '',
+        website: data.website || '',
+      });
+    } catch (error: any) {
+      toast.error('Failed to load profile');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          username: formData.username,
+          full_name: formData.fullName,
+          bio: formData.bio,
+          website: formData.website,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast.success("Profile updated successfully!");
+      navigate("/profile");
+    } catch (error: any) {
+      toast.error("Failed to update profile");
+      console.error('Error updating profile:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
         <div className="max-w-screen-lg mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -43,19 +97,22 @@ export default function EditProfile() {
             onClick={handleSave}
             variant="secondary"
             className="font-semibold"
+            disabled={loading}
           >
-            Save
+            {loading ? "Saving..." : "Save"}
           </Button>
         </div>
       </header>
 
       <main className="max-w-screen-lg mx-auto px-4 pt-6">
         <div className="bg-card rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-6">
-          {/* Avatar */}
           <div className="flex flex-col items-center gap-3">
             <Avatar className="h-24 w-24 ring-4 ring-accent/20">
-              <AvatarImage src={profileAvatar} alt="Profile" />
-              <AvatarFallback>AC</AvatarFallback>
+              <AvatarImage 
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} 
+                alt="Profile" 
+              />
+              <AvatarFallback>{formData.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
             <Button variant="outline" size="sm" className="gap-2">
               <Camera className="h-4 w-4" />
@@ -63,7 +120,6 @@ export default function EditProfile() {
             </Button>
           </div>
 
-          {/* Form Fields */}
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
@@ -104,12 +160,11 @@ export default function EditProfile() {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="pt-4 border-t border-border space-y-3">
             <Button variant="outline" className="w-full">
               Change Password
             </Button>
-            <Button variant="destructive" className="w-full">
+            <Button onClick={signOut} variant="destructive" className="w-full">
               Log Out
             </Button>
           </div>

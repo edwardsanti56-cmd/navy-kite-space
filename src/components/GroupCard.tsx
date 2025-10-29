@@ -6,9 +6,10 @@ interface GroupCardProps {
   banner: string;
   memberCount: number;
   isJoined?: boolean;
+  onToggle?: () => void;
 }
 
-export const GroupCard = ({ name, banner, memberCount, isJoined = false }: GroupCardProps) => {
+export const GroupCard = ({ name, banner, memberCount, isJoined = false, onToggle }: GroupCardProps) => {
   return (
     <div className="bg-card rounded-xl overflow-hidden shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-medium)] transition-all hover:scale-[1.02]">
       <div className="aspect-video bg-muted relative">
@@ -27,6 +28,7 @@ export const GroupCard = ({ name, banner, memberCount, isJoined = false }: Group
         <Button
           className="w-full"
           variant={isJoined ? "outline" : "default"}
+          onClick={onToggle}
         >
           {isJoined ? "Joined" : "Join Group"}
         </Button>
