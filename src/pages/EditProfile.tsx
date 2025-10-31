@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Camera } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowLeft, Camera, Upload } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +14,9 @@ export default function EditProfile() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     username: "",
     fullName: "",
@@ -45,8 +48,64 @@ export default function EditProfile() {
         bio: data.bio || '',
         website: data.website || '',
       });
+      setAvatarUrl(data.avatar_url || '');
     } catch (error: any) {
       toast.error('Failed to load profile');
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatars/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(fileName);
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+      toast.success("Profile picture updated!");
+    } catch (error: any) {
+      toast.error("Failed to upload avatar: " + error.message);
+      console.error('Error uploading avatar:', error);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -109,14 +168,36 @@ export default function EditProfile() {
           <div className="flex flex-col items-center gap-3">
             <Avatar className="h-24 w-24 ring-4 ring-accent/20">
               <AvatarImage 
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} 
+                src={avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} 
                 alt="Profile" 
               />
               <AvatarFallback>{formData.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Camera className="h-4 w-4" />
-              Change Photo
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <>
+                  <Upload className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Camera className="h-4 w-4" />
+                  Change Photo
+                </>
+              )}
             </Button>
           </div>
 

@@ -1,10 +1,12 @@
 import { GroupCard } from "@/components/GroupCard";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 
 interface Group {
   id: string;
@@ -21,6 +23,7 @@ export default function Groups() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -104,7 +107,18 @@ export default function Groups() {
     <div className="min-h-screen bg-background pb-20">
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
         <div className="max-w-screen-lg mx-auto">
-          <h1 className="text-2xl font-bold mb-4">Groups</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold">Groups</h1>
+            <Button
+              onClick={() => setCreateDialogOpen(true)}
+              variant="secondary"
+              size="sm"
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create
+            </Button>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
             <Input
@@ -116,6 +130,12 @@ export default function Groups() {
           </div>
         </div>
       </header>
+
+      <CreateGroupDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onGroupCreated={fetchGroups}
+      />
 
       <main className="max-w-screen-lg mx-auto px-4 pt-6">
         {filteredGroups.length === 0 ? (

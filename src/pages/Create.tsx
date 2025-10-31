@@ -33,15 +33,30 @@ export default function Create() {
     setUploading(true);
 
     try {
-      // For now, we'll use a placeholder URL since we don't have storage set up
-      // In production, you would upload to Supabase Storage first
-      const mockMediaUrl = `https://images.unsplash.com/photo-${Date.now()}?w=800&q=80`;
+      // Upload file to Supabase Storage
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${user.id}/posts/${Date.now()}.${fileExt}`;
       
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(fileName, selectedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(fileName);
+      
+      // Create post in database
       const { error } = await supabase
         .from('posts')
         .insert({
           user_id: user.id,
-          media_url: mockMediaUrl,
+          media_url: publicUrl,
           caption: caption || null,
           is_video: selectedFile.type.startsWith('video/'),
         });
@@ -51,7 +66,7 @@ export default function Create() {
       toast.success("Post shared successfully!");
       navigate("/");
     } catch (error: any) {
-      toast.error("Failed to share post");
+      toast.error("Failed to share post: " + error.message);
       console.error('Error creating post:', error);
     } finally {
       setUploading(false);
