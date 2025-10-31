@@ -146,7 +146,7 @@ export default function Home() {
     <div className="min-h-screen bg-background pb-20">
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
         <div className="max-w-screen-lg mx-auto">
-          <h1 className="text-2xl font-bold">Kite Feed</h1>
+          <h1 className="text-2xl font-bold">kitesco</h1>
         </div>
       </header>
 
