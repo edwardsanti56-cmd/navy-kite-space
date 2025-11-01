@@ -7,12 +7,16 @@ interface GroupCardProps {
   memberCount: number;
   isJoined?: boolean;
   onToggle?: () => void;
+  onClick?: () => void;
 }
 
-export const GroupCard = ({ name, banner, memberCount, isJoined = false, onToggle }: GroupCardProps) => {
+export const GroupCard = ({ name, banner, memberCount, isJoined = false, onToggle, onClick }: GroupCardProps) => {
   return (
     <div className="bg-card rounded-xl overflow-hidden shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-medium)] transition-all hover:scale-[1.02]">
-      <div className="aspect-video bg-muted relative">
+      <div 
+        className="aspect-video bg-muted relative cursor-pointer"
+        onClick={onClick}
+      >
         <img
           src={banner}
           alt={name}
@@ -20,7 +24,12 @@ export const GroupCard = ({ name, banner, memberCount, isJoined = false, onToggl
         />
       </div>
       <div className="p-4">
-        <h3 className="font-bold text-foreground mb-1 line-clamp-1">{name}</h3>
+        <h3 
+          className="font-bold text-foreground mb-1 line-clamp-1 cursor-pointer hover:underline"
+          onClick={onClick}
+        >
+          {name}
+        </h3>
         <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
           <Users className="h-4 w-4" />
           <span>{memberCount.toLocaleString()} members</span>
@@ -28,7 +37,10 @@ export const GroupCard = ({ name, banner, memberCount, isJoined = false, onToggl
         <Button
           className="w-full"
           variant={isJoined ? "outline" : "default"}
-          onClick={onToggle}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle?.();
+          }}
         >
           {isJoined ? "Joined" : "Join Group"}
         </Button>

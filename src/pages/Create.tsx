@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePlus, Video, X, Upload } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,10 +10,26 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function Create() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const groupId = searchParams.get("groupId");
   const [caption, setCaption] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [groupName, setGroupName] = useState<string>("");
+
+  useEffect(() => {
+    if (groupId) {
+      supabase
+        .from("groups")
+        .select("name")
+        .eq("id", groupId)
+        .single()
+        .then(({ data }) => {
+          if (data) setGroupName(data.name);
+        });
+    }
+  }, [groupId]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -59,12 +75,13 @@ export default function Create() {
           media_url: publicUrl,
           caption: caption || null,
           is_video: selectedFile.type.startsWith('video/'),
+          group_id: groupId || null,
         });
 
       if (error) throw error;
 
       toast.success("Post shared successfully!");
-      navigate("/");
+      navigate(groupId ? `/groups/${groupId}` : "/");
     } catch (error: any) {
       toast.error("Failed to share post: " + error.message);
       console.error('Error creating post:', error);
@@ -75,17 +92,24 @@ export default function Create() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)] flex items-center justify-between">
-        <div className="max-w-screen-lg mx-auto w-full flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Create New Post</h1>
-          <Button
-            onClick={handleShare}
-            variant="secondary"
-            className="font-semibold"
-            disabled={!selectedFile || uploading}
-          >
-            {uploading ? "Sharing..." : "Share"}
-          </Button>
+      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
+        <div className="max-w-screen-lg mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl font-bold">Create New Post</h1>
+            <Button
+              onClick={handleShare}
+              variant="secondary"
+              className="font-semibold"
+              disabled={!selectedFile || uploading}
+            >
+              {uploading ? "Sharing..." : "Share"}
+            </Button>
+          </div>
+          {groupName && (
+            <p className="text-sm text-primary-foreground/80">
+              Posting to: <span className="font-semibold">{groupName}</span>
+            </p>
+          )}
         </div>
       </header>
 

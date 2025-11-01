@@ -2,100 +2,54 @@ import { GroupCard } from "@/components/GroupCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
-
-interface Group {
-  id: string;
-  name: string;
-  banner_url: string | null;
-  description: string | null;
-  created_by: string;
-  created_at: string;
-  member_count: number;
-  isJoined: boolean;
-}
+import { useGroupsQuery } from "@/hooks/useGroupsQuery";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 export default function Groups() {
-  const [groups, setGroups] = useState<Group[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const { user } = useAuth();
+  const { data: groups, isLoading } = useGroupsQuery();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchGroups();
-  }, [user]);
+  const joinMutation = useMutation({
+    mutationFn: async ({ groupId, isJoined }: { groupId: string; isJoined: boolean }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Please sign in");
 
-  const fetchGroups = async () => {
-    try {
-      // Fetch all groups
-      const { data: groupsData, error: groupsError } = await supabase
-        .from('groups')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (groupsError) throw groupsError;
-
-      // Fetch member counts and user memberships
-      const groupIds = groupsData?.map(g => g.id) || [];
-      
-      const { data: membersData } = await supabase
-        .from('group_members')
-        .select('group_id, user_id');
-
-      // Combine data
-      const groupsWithCounts = groupsData?.map(group => {
-        const members = membersData?.filter(m => m.group_id === group.id) || [];
-        const isJoined = user ? members.some(m => m.user_id === user.id) : false;
-        
-        return {
-          ...group,
-          member_count: members.length,
-          isJoined,
-        };
-      }) || [];
-
-      setGroups(groupsWithCounts);
-    } catch (error: any) {
-      toast.error('Failed to load groups');
-      console.error('Error fetching groups:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleJoinToggle = async (groupId: string, isJoined: boolean) => {
-    if (!user) return;
-
-    try {
       if (isJoined) {
-        await supabase
-          .from('group_members')
+        const { error } = await supabase
+          .from("group_members")
           .delete()
-          .eq('group_id', groupId)
-          .eq('user_id', user.id);
-        toast.success('Left group');
+          .eq("group_id", groupId)
+          .eq("user_id", user.id);
+        if (error) throw error;
       } else {
-        await supabase
-          .from('group_members')
+        const { error } = await supabase
+          .from("group_members")
           .insert({ group_id: groupId, user_id: user.id });
-        toast.success('Joined group!');
+        if (error) throw error;
       }
-      fetchGroups();
-    } catch (error: any) {
-      toast.error('Failed to update membership');
-    }
-  };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      toast.success("Group membership updated");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update membership");
+    },
+  });
 
-  const filteredGroups = groups.filter(group =>
+  const filteredGroups = groups?.filter(group =>
     group.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) || [];
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pb-20">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -134,7 +88,7 @@ export default function Groups() {
       <CreateGroupDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        onGroupCreated={fetchGroups}
+        onGroupCreated={() => queryClient.invalidateQueries({ queryKey: ["groups"] })}
       />
 
       <main className="max-w-screen-lg mx-auto px-4 pt-6">
@@ -152,8 +106,9 @@ export default function Groups() {
                 name={group.name}
                 banner={group.banner_url || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80"}
                 memberCount={group.member_count}
-                isJoined={group.isJoined}
-                onToggle={() => handleJoinToggle(group.id, group.isJoined)}
+                isJoined={group.is_joined}
+                onToggle={() => joinMutation.mutate({ groupId: group.id, isJoined: group.is_joined })}
+                onClick={() => navigate(`/groups/${group.id}`)}
               />
             ))}
           </div>

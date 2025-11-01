@@ -135,6 +135,7 @@ export type Database = {
         Row: {
           caption: string | null
           created_at: string
+          group_id: string | null
           id: string
           is_video: boolean | null
           media_url: string
@@ -143,6 +144,7 @@ export type Database = {
         Insert: {
           caption?: string | null
           created_at?: string
+          group_id?: string | null
           id?: string
           is_video?: boolean | null
           media_url: string
@@ -151,12 +153,21 @@ export type Database = {
         Update: {
           caption?: string | null
           created_at?: string
+          group_id?: string | null
           id?: string
           is_video?: boolean | null
           media_url?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posts_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

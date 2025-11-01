@@ -128,18 +128,10 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="flex items-center justify-around py-4 border-t border-border">
+          <div className="flex items-center justify-center py-4 border-t border-border">
             <div className="text-center">
               <p className="text-2xl font-bold text-foreground">{stats.posts}</p>
               <p className="text-sm text-muted-foreground">Posts</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">{stats.followers}</p>
-              <p className="text-sm text-muted-foreground">Followers</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">{stats.following}</p>
-              <p className="text-sm text-muted-foreground">Following</p>
             </div>
           </div>
         </div>

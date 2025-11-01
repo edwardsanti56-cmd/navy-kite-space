@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BottomNav } from "@/components/BottomNav";
 import Home from "./pages/Home";
 import Groups from "./pages/Groups";
+import GroupDetail from "./pages/GroupDetail";
 import Create from "./pages/Create";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
@@ -38,6 +39,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Groups />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups/:groupId"
+              element={
+                <ProtectedRoute>
+                  <GroupDetail />
                 </ProtectedRoute>
               }
             />
