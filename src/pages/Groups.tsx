@@ -36,12 +36,36 @@ export default function Groups() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
-      toast.success("Group membership updated");
+    onMutate: async ({ groupId, isJoined }) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: ["groups"] });
+      const previousGroups = queryClient.getQueryData(["groups"]);
+      
+      queryClient.setQueryData(["groups"], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => 
+          group.id === groupId 
+            ? { 
+                ...group, 
+                is_joined: !isJoined,
+                member_count: group.member_count + (isJoined ? -1 : 1)
+              }
+            : group
+        );
+      });
+
+      toast.success(isJoined ? "Left group" : "Joined group");
+      return { previousGroups };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _, context: any) => {
+      // Rollback on error
+      if (context?.previousGroups) {
+        queryClient.setQueryData(["groups"], context.previousGroups);
+      }
       toast.error(error.message || "Failed to update membership");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
   });
 

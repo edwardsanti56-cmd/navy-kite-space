@@ -18,40 +18,17 @@ export const useGroupsQuery = () => {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Use optimized function that fetches all data in one query
       const { data: groups, error } = await supabase
-        .from("groups")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .rpc("get_groups_with_details", { p_user_id: user?.id || null });
 
       if (error) throw error;
 
-      const groupsWithDetails = await Promise.all(
-        groups.map(async (group) => {
-          const [memberCountData, joinStatusData] = await Promise.all([
-            supabase
-              .from("group_members")
-              .select("*", { count: "exact" })
-              .eq("group_id", group.id),
-            user
-              ? supabase
-                  .from("group_members")
-                  .select("*")
-                  .eq("group_id", group.id)
-                  .eq("user_id", user.id)
-                  .maybeSingle()
-              : Promise.resolve({ data: null }),
-          ]);
-
-          return {
-            ...group,
-            banner_url: group.banner_url || "/placeholder.svg",
-            member_count: memberCountData.count || 0,
-            is_joined: !!joinStatusData.data,
-          };
-        })
-      );
-
-      return groupsWithDetails as Group[];
+      // Map to expected format with placeholder for missing banners
+      return (groups || []).map(group => ({
+        ...group,
+        banner_url: group.banner_url || "/placeholder.svg",
+      })) as Group[];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes

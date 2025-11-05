@@ -33,7 +33,7 @@ export function CreateGroupDialog({ open, onOpenChange, onGroupCreated }: Create
     description: "",
   });
 
-  const handleBannerSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
@@ -44,8 +44,43 @@ export function CreateGroupDialog({ open, onOpenChange, onGroupCreated }: Create
         toast.error("Image must be less than 5MB");
         return;
       }
-      setBannerFile(file);
-      const url = URL.createObjectURL(file);
+
+      // Compress image if it's large
+      let processedFile = file;
+      if (file.size > 1 * 1024 * 1024) {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const img = new Image();
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = URL.createObjectURL(file);
+          });
+
+          // Resize to max 1920px width while maintaining aspect ratio
+          const maxWidth = 1920;
+          const scale = Math.min(1, maxWidth / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          const blob = await new Promise<Blob>((resolve) => {
+            canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.85);
+          });
+          
+          processedFile = new File([blob], file.name, { type: 'image/jpeg' });
+          toast.success("Image optimized for upload");
+        } catch (error) {
+          console.error('Image compression failed:', error);
+          toast.info("Using original image");
+        }
+      }
+
+      setBannerFile(processedFile);
+      const url = URL.createObjectURL(processedFile);
       setBannerPreview(url);
     }
   };
@@ -73,20 +108,51 @@ export function CreateGroupDialog({ open, onOpenChange, onGroupCreated }: Create
         const fileExt = bannerFile.name.split('.').pop();
         const fileName = `${user.id}/groups/${Date.now()}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
-          .from('media')
-          .upload(fileName, bannerFile, {
-            cacheControl: '3600',
-            upsert: false
-          });
+        let uploadAttempts = 0;
+        const maxAttempts = 3;
+        let uploadError = null;
 
-        if (uploadError) throw uploadError;
+        while (uploadAttempts < maxAttempts) {
+          try {
+            const { error, data } = await supabase.storage
+              .from('media')
+              .upload(fileName, bannerFile, {
+                cacheControl: '3600',
+                upsert: false
+              });
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('media')
-          .getPublicUrl(fileName);
+            if (error) {
+              uploadError = error;
+              uploadAttempts++;
+              if (uploadAttempts < maxAttempts) {
+                toast.info(`Upload failed, retrying... (${uploadAttempts}/${maxAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
+                continue;
+              }
+            } else {
+              const { data: { publicUrl } } = supabase.storage
+                .from('media')
+                .getPublicUrl(fileName);
 
-        bannerUrl = publicUrl;
+              bannerUrl = publicUrl;
+              break;
+            }
+          } catch (error: any) {
+            uploadError = error;
+            uploadAttempts++;
+            if (uploadAttempts < maxAttempts) {
+              toast.info(`Upload failed, retrying... (${uploadAttempts}/${maxAttempts})`);
+              await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
+            }
+          }
+        }
+
+        if (uploadError && uploadAttempts >= maxAttempts) {
+          console.error('Storage upload error:', uploadError);
+          toast.error(`Failed to upload banner after ${maxAttempts} attempts. Creating group without banner.`);
+          // Continue with group creation without banner
+          bannerUrl = null;
+        }
       }
 
       // Create group
