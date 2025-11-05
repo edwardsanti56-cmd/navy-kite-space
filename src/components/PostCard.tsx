@@ -1,10 +1,23 @@
-import { Heart, MessageCircle, Share2, MoreHorizontal } from "lucide-react";
+import { Heart, MessageCircle, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface PostCardProps {
   postId: string;
+  userId: string;
+  currentUserId?: string;
   username: string;
   avatar: string;
   timestamp: string;
@@ -15,10 +28,13 @@ interface PostCardProps {
   isVideo?: boolean;
   isLiked?: boolean;
   onLike?: (postId: string, isLiked: boolean) => void;
+  onDelete?: (postId: string) => void;
 }
 
 export const PostCard = ({
   postId,
+  userId,
+  currentUserId,
   username,
   avatar,
   timestamp,
@@ -29,12 +45,15 @@ export const PostCard = ({
   isVideo = false,
   isLiked = false,
   onLike,
+  onDelete,
 }: PostCardProps) => {
   const handleLike = () => {
     if (onLike) {
       onLike(postId, isLiked);
     }
   };
+
+  const isOwner = currentUserId && userId === currentUserId;
 
   return (
     <div className="bg-card rounded-xl overflow-hidden mb-4 shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-medium)] transition-shadow">
@@ -50,9 +69,32 @@ export const PostCard = ({
             <p className="text-sm text-muted-foreground">{timestamp}</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-          <MoreHorizontal className="h-5 w-5" />
-        </Button>
+        {isOwner && onDelete && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Post</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this post? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onDelete(postId)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       {/* Media */}

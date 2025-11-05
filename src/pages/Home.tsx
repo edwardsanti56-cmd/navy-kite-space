@@ -122,6 +122,35 @@ export default function Home() {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    if (!user) return;
+
+    try {
+      // First delete the media from storage if exists
+      const post = posts.find(p => p.id === postId);
+      if (post?.media_url) {
+        const urlParts = post.media_url.split('/');
+        const fileName = urlParts.slice(-2).join('/'); // Get user_id/filename
+        await supabase.storage.from('media').remove([fileName]);
+      }
+
+      // Delete the post (cascades will handle likes/comments)
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', postId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast.success('Post deleted');
+      fetchPosts();
+    } catch (error: any) {
+      toast.error('Failed to delete post');
+      console.error('Delete error:', error);
+    }
+  };
+
   const getTimeAgo = (timestamp: string) => {
     const now = new Date();
     const created = new Date(timestamp);
@@ -160,6 +189,8 @@ export default function Home() {
             <PostCard
               key={post.id}
               postId={post.id}
+              userId={post.user_id}
+              currentUserId={user?.id}
               username={post.profiles?.username || 'Unknown'}
               avatar={post.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.user_id}`}
               timestamp={getTimeAgo(post.created_at)}
@@ -170,6 +201,7 @@ export default function Home() {
               isVideo={post.is_video}
               isLiked={post.likes.some(like => like.user_id === user?.id)}
               onLike={handleLike}
+              onDelete={handleDeletePost}
             />
           ))
         )}

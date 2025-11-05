@@ -3,14 +3,33 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/PostCard";
-import { ArrowLeft, Plus, Users } from "lucide-react";
+import { ArrowLeft, Plus, Users, Trash2 } from "lucide-react";
 import { usePostsQuery } from "@/hooks/usePostsQuery";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function GroupDetail() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const { data: currentUser } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    },
+  });
 
   const { data: group, isLoading: groupLoading } = useQuery({
     queryKey: ["group", groupId],
@@ -44,6 +63,7 @@ export default function GroupDetail() {
         ...data,
         member_count: memberCountData.count || 0,
         is_joined: !!joinStatusData.data,
+        is_owner: user?.id === data.created_by,
       };
     },
   });
@@ -110,6 +130,65 @@ export default function GroupDetail() {
     },
   });
 
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get post to delete media
+      const post = posts?.find(p => p.id === postId);
+      if (post?.media_url) {
+        const urlParts = post.media_url.split('/');
+        const fileName = urlParts.slice(-2).join('/');
+        await supabase.storage.from('media').remove([fileName]);
+      }
+
+      const { error } = await supabase
+        .from("posts")
+        .delete()
+        .eq("id", postId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts", groupId] });
+      toast.success("Post deleted");
+    },
+    onError: () => {
+      toast.error("Failed to delete post");
+    },
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Delete group banner if exists
+      if (group?.banner_url) {
+        const urlParts = group.banner_url.split('/');
+        const fileName = urlParts.slice(-2).join('/');
+        await supabase.storage.from('media').remove([fileName]);
+      }
+
+      const { error } = await supabase
+        .from("groups")
+        .delete()
+        .eq("id", groupId)
+        .eq("created_by", user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Group deleted");
+      navigate("/groups");
+    },
+    onError: () => {
+      toast.error("Failed to delete group");
+    },
+  });
+
   if (groupLoading || postsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -139,7 +218,33 @@ export default function GroupDetail() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold">{group.name}</h1>
+          <h1 className="text-xl font-bold flex-1">{group.name}</h1>
+          {group.is_owner && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Group</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this group? This will delete all posts and members. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteGroupMutation.mutate()}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete Group
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
@@ -184,6 +289,8 @@ export default function GroupDetail() {
             <PostCard
               key={post.id}
               postId={post.id}
+              userId={post.user_id}
+              currentUserId={currentUser?.id}
               username={post.author.username}
               avatar={post.author.avatar_url}
               mediaUrl={post.media_url}
@@ -194,6 +301,7 @@ export default function GroupDetail() {
               timestamp={post.created_at}
               isLiked={post.isLiked}
               onLike={() => likeMutation.mutate(post.id)}
+              onDelete={() => deletePostMutation.mutate(post.id)}
             />
           ))
         ) : (
