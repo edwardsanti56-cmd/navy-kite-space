@@ -1,91 +1,46 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Settings, Video } from "lucide-react";
+import { Settings, Grid3x3, Link as LinkIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-
-interface Profile {
-  username: string;
-  full_name: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  website: string | null;
-}
-
-interface Post {
-  id: string;
-  media_url: string;
-  is_video: boolean;
-}
+import { Skeleton } from "@/components/ui/skeleton";
+import { useProfileQuery } from "@/hooks/useProfileQuery";
 
 export default function Profile() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [stats, setStats] = useState({ posts: 0, followers: 1234, following: 543 });
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useProfileQuery();
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-      fetchUserPosts();
-    }
-  }, [user]);
-
-  const fetchProfile = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-      setProfile(data);
-    } catch (error: any) {
-      toast.error('Failed to load profile');
-      console.error('Error fetching profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserPosts = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('id, media_url, is_video')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setPosts(data || []);
-      setStats(prev => ({ ...prev, posts: data?.length || 0 }));
-    } catch (error: any) {
-      console.error('Error fetching posts:', error);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background pb-20">
+        <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
+          <div className="max-w-screen-lg mx-auto flex items-center justify-between">
+            <h1 className="text-2xl font-bold">My Profile</h1>
+            <Skeleton className="h-10 w-10 rounded-md" />
+          </div>
+        </header>
+        <main className="max-w-screen-lg mx-auto px-4 pt-6">
+          <div className="bg-card rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-6">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-20 w-20 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
 
+  const { profile, posts, stats } = data || {};
+
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)] flex items-center justify-between">
-        <div className="max-w-screen-lg mx-auto w-full flex items-center justify-between">
+      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
+        <div className="max-w-screen-lg mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold">My Profile</h1>
           <Button
             onClick={() => navigate("/edit-profile")}
@@ -99,68 +54,69 @@ export default function Profile() {
       </header>
 
       <main className="max-w-screen-lg mx-auto px-4 pt-6">
-        <div className="bg-card rounded-xl p-6 mb-6 shadow-[var(--shadow-soft)]">
-          <div className="flex items-start gap-6 mb-6">
-            <Avatar className="h-24 w-24 ring-4 ring-accent/20">
-              <AvatarImage 
-                src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} 
-                alt="Profile" 
+        <div className="bg-card rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-6">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-20 w-20 ring-4 ring-accent/20">
+              <AvatarImage
+                src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                alt={profile?.username}
               />
               <AvatarFallback>{profile?.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-foreground mb-1">
-                {profile?.username || 'User'}
-              </h2>
-              <p className="text-muted-foreground mb-4 whitespace-pre-wrap">
-                {profile?.bio || 'No bio yet'}
-              </p>
-              {profile?.website && (
-                <a 
-                  href={`https://${profile.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent hover:underline"
-                >
-                  {profile.website}
-                </a>
-              )}
+              <h2 className="text-xl font-bold text-foreground">{profile?.username}</h2>
+              <p className="text-muted-foreground">{profile?.full_name}</p>
             </div>
           </div>
 
-          <div className="flex items-center justify-center py-4 border-t border-border">
+          {profile?.bio && (
+            <p className="text-foreground">{profile.bio}</p>
+          )}
+
+          {profile?.website && (
+            <div className="flex items-center gap-2 text-accent">
+              <LinkIcon className="h-4 w-4" />
+              <a href={profile.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                {profile.website}
+              </a>
+            </div>
+          )}
+
+          <div className="flex gap-8 py-4 border-y border-border">
             <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">{stats.posts}</p>
-              <p className="text-sm text-muted-foreground">Posts</p>
+              <div className="text-2xl font-bold text-foreground">{stats?.posts || 0}</div>
+              <div className="text-sm text-muted-foreground">Posts</div>
             </div>
           </div>
         </div>
 
-        <div>
-          <h3 className="text-lg font-bold text-foreground mb-4">Posts</h3>
-          {posts.length === 0 ? (
-            <div className="text-center py-12 bg-card rounded-xl">
-              <p className="text-muted-foreground">No posts yet</p>
-            </div>
-          ) : (
+        <div className="mt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Grid3x3 className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold text-foreground">Posts</h2>
+          </div>
+          {posts && posts.length > 0 ? (
             <div className="grid grid-cols-3 gap-1">
               {posts.map((post) => (
-                <div
-                  key={post.id}
-                  className="aspect-square bg-muted rounded-lg overflow-hidden hover:opacity-90 transition-opacity cursor-pointer relative"
-                >
-                  <img
-                    src={post.media_url}
-                    alt={`Post ${post.id}`}
-                    className="w-full h-full object-cover"
-                  />
-                  {post.is_video && (
-                    <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1">
-                      <Video className="h-4 w-4 text-white" />
-                    </div>
+                <div key={post.id} className="aspect-square bg-muted relative group overflow-hidden rounded-md">
+                  {post.is_video ? (
+                    <video
+                      src={post.media_url}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={post.media_url}
+                      alt="Post"
+                      className="w-full h-full object-cover"
+                    />
                   )}
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-card rounded-xl shadow-[var(--shadow-soft)]">
+              <p className="text-muted-foreground">No posts yet</p>
             </div>
           )}
         </div>

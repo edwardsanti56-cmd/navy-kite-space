@@ -1,172 +1,150 @@
 import { PostCard } from "@/components/PostCard";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-interface Post {
-  id: string;
-  user_id: string;
-  media_url: string;
-  caption: string | null;
-  is_video: boolean;
-  created_at: string;
-  profiles: {
-    username: string;
-    avatar_url: string | null;
-  } | null;
-  likes: { id: string; user_id: string }[];
-  comments: { id: string }[];
-}
+import { usePostsQuery } from "@/hooks/usePostsQuery";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect } from "react";
 
 export default function Home() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: posts = [], isLoading } = usePostsQuery();
 
+  // Realtime subscription for precise invalidation
   useEffect(() => {
-    fetchPosts();
-
-    // Set up realtime subscription
     const channel = supabase
-      .channel('posts-changes')
+      .channel('home-posts-changes')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'posts'
-        },
-        () => {
-          fetchPosts();
-        }
+        { event: '*', schema: 'public', table: 'posts', filter: 'group_id=is.null' },
+        () => queryClient.invalidateQueries({ queryKey: ["posts", undefined] })
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'likes' },
+        () => queryClient.invalidateQueries({ queryKey: ["posts", undefined] })
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [queryClient]);
 
-  const fetchPosts = async () => {
-    try {
-      // Fetch posts first
-      const { data: postsData, error: postsError } = await supabase
-        .from('posts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (postsError) throw postsError;
-
-      // Fetch profiles
-      const userIds = postsData?.map(post => post.user_id) || [];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url')
-        .in('id', userIds);
-
-      // Fetch likes
-      const postIds = postsData?.map(post => post.id) || [];
-      const { data: likesData } = await supabase
-        .from('likes')
-        .select('id, user_id, post_id')
-        .in('post_id', postIds);
-
-      // Fetch comments count
-      const { data: commentsData } = await supabase
-        .from('comments')
-        .select('id, post_id')
-        .in('post_id', postIds);
-
-      // Combine data
-      const combinedPosts = postsData?.map(post => {
-        const profile = profilesData?.find(p => p.id === post.user_id);
-        const postLikes = likesData?.filter(like => like.post_id === post.id) || [];
-        const postComments = commentsData?.filter(comment => comment.post_id === post.id) || [];
-
-        return {
-          ...post,
-          profiles: profile || null,
-          likes: postLikes,
-          comments: postComments,
-        };
-      }) || [];
-
-      setPosts(combinedPosts);
-    } catch (error: any) {
-      toast.error('Failed to load posts');
-      console.error('Error fetching posts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLike = async (postId: string, isLiked: boolean) => {
-    if (!user) return;
-
-    try {
+  const likeMutation = useMutation({
+    mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
       if (isLiked) {
-        await supabase
-          .from('likes')
+        const { error } = await supabase
+          .from("likes")
           .delete()
-          .eq('post_id', postId)
-          .eq('user_id', user.id);
+          .eq("post_id", postId)
+          .eq("user_id", user?.id);
+        if (error) throw error;
       } else {
-        await supabase
-          .from('likes')
-          .insert({ post_id: postId, user_id: user.id });
+        const { error } = await supabase
+          .from("likes")
+          .insert({ post_id: postId, user_id: user?.id });
+        if (error) throw error;
       }
-      fetchPosts();
-    } catch (error: any) {
-      toast.error('Failed to update like');
-    }
-  };
+    },
+    onMutate: async ({ postId, isLiked }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["posts", undefined] });
 
-  const handleDeletePost = async (postId: string) => {
-    if (!user) return;
+      // Snapshot previous value
+      const previousPosts = queryClient.getQueryData(["posts", undefined]);
 
-    try {
-      // First delete the media from storage if exists
+      // Optimistically update
+      queryClient.setQueryData(["posts", undefined], (old: any) =>
+        old?.map((post: any) =>
+          post.id === postId
+            ? { ...post, isLiked: !isLiked, likes: post.likes + (isLiked ? -1 : 1) }
+            : post
+        )
+      );
+
+      return { previousPosts };
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(["posts", undefined], context?.previousPosts);
+      toast.error("Failed to update like");
+    },
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
       const post = posts.find(p => p.id === postId);
-      if (post?.media_url) {
-        const urlParts = post.media_url.split('/');
-        const fileName = urlParts.slice(-2).join('/'); // Get user_id/filename
-        await supabase.storage.from('media').remove([fileName]);
-      }
-
-      // Delete the post (cascades will handle likes/comments)
-      const { error } = await supabase
-        .from('posts')
-        .delete()
-        .eq('id', postId)
-        .eq('user_id', user.id);
-
+      
+      // Delete from database first
+      const { error } = await supabase.from("posts").delete().eq("id", postId);
       if (error) throw error;
 
-      toast.success('Post deleted');
-      fetchPosts();
-    } catch (error: any) {
-      toast.error('Failed to delete post');
-      console.error('Delete error:', error);
-    }
-  };
+      // Delete media from storage (non-blocking)
+      if (post?.media_url) {
+        const urlParts = post.media_url.split('/');
+        const fileName = urlParts.slice(-3).join('/');
+        supabase.storage.from('media').remove([fileName]).catch(console.error);
+      }
+    },
+    onMutate: async (postId) => {
+      await queryClient.cancelQueries({ queryKey: ["posts", undefined] });
+      const previousPosts = queryClient.getQueryData(["posts", undefined]);
+
+      queryClient.setQueryData(["posts", undefined], (old: any) =>
+        old?.filter((post: any) => post.id !== postId)
+      );
+
+      return { previousPosts };
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(["posts", undefined], context?.previousPosts);
+      toast.error("Failed to delete post");
+    },
+    onSuccess: () => {
+      toast.success("Post deleted");
+    },
+  });
 
   const getTimeAgo = (timestamp: string) => {
     const now = new Date();
-    const created = new Date(timestamp);
-    const diffInHours = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours} hours ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays === 1) return '1 day ago';
-    return `${diffInDays} days ago`;
+    const postDate = new Date(timestamp);
+    const secondsAgo = Math.floor((now.getTime() - postDate.getTime()) / 1000);
+
+    if (secondsAgo < 60) return `${secondsAgo}s`;
+    if (secondsAgo < 3600) return `${Math.floor(secondsAgo / 60)}m`;
+    if (secondsAgo < 86400) return `${Math.floor(secondsAgo / 3600)}h`;
+    return `${Math.floor(secondsAgo / 86400)}d`;
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background pb-20">
+        <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
+          <div className="max-w-screen-lg mx-auto">
+            <h1 className="text-2xl font-bold">Feed</h1>
+          </div>
+        </header>
+        <main className="max-w-screen-lg mx-auto px-4 pt-4 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-card rounded-xl overflow-hidden shadow-[var(--shadow-soft)]">
+              <div className="p-4 flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+              <Skeleton className="w-full aspect-square" />
+              <div className="p-4 space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            </div>
+          ))}
+        </main>
       </div>
     );
   }
@@ -175,35 +153,37 @@ export default function Home() {
     <div className="min-h-screen bg-background pb-20">
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
         <div className="max-w-screen-lg mx-auto">
-          <h1 className="text-2xl font-bold">kitesco</h1>
+          <h1 className="text-2xl font-bold">Feed</h1>
         </div>
       </header>
 
       <main className="max-w-screen-lg mx-auto px-4 pt-4">
         {posts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No posts yet. Be the first to share!</p>
+            <p className="text-muted-foreground">No posts yet. Start creating!</p>
           </div>
         ) : (
-          posts.map((post) => (
-            <PostCard
-              key={post.id}
-              postId={post.id}
-              userId={post.user_id}
-              currentUserId={user?.id}
-              username={post.profiles?.username || 'Unknown'}
-              avatar={post.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.user_id}`}
-              timestamp={getTimeAgo(post.created_at)}
-              mediaUrl={post.media_url}
-              caption={post.caption || ''}
-              likes={post.likes.length}
-              comments={post.comments.length}
-              isVideo={post.is_video}
-              isLiked={post.likes.some(like => like.user_id === user?.id)}
-              onLike={handleLike}
-              onDelete={handleDeletePost}
-            />
-          ))
+          <div className="space-y-4">
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                postId={post.id}
+                userId={post.user_id}
+                username={post.author.username}
+                avatar={post.author.avatar_url}
+                timestamp={getTimeAgo(post.created_at)}
+                mediaUrl={post.media_url}
+                isVideo={post.is_video}
+                likes={post.likes}
+                comments={post.comments}
+                caption={post.caption}
+                isLiked={post.isLiked}
+                currentUserId={user?.id}
+                onLike={() => likeMutation.mutate({ postId: post.id, isLiked: post.isLiked })}
+                onDelete={() => deletePostMutation.mutate(post.id)}
+              />
+            ))}
+          </div>
         )}
       </main>
     </div>

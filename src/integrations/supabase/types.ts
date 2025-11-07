@@ -220,6 +220,23 @@ export type Database = {
           name: string
         }[]
       }
+      get_posts_with_meta: {
+        Args: { p_group_id?: string; p_user_id?: string }
+        Returns: {
+          author_avatar_url: string
+          author_username: string
+          caption: string
+          comments_count: number
+          created_at: string
+          group_id: string
+          id: string
+          is_liked: boolean
+          is_video: boolean
+          likes_count: number
+          media_url: string
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
