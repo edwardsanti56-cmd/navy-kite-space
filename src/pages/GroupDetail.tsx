@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/PostCard";
-import { ArrowLeft, Plus, Users, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ChatInputBar } from "@/components/ChatInputBar";
 
 export default function GroupDetail() {
   const navigate = useNavigate();
@@ -195,6 +196,97 @@ export default function GroupDetail() {
     },
   });
 
+  const handleSendMessage = async (message: string) => {
+    if (!user || !groupId) return;
+    
+    const { error } = await supabase.from('posts').insert({
+      user_id: user.id,
+      caption: message,
+      group_id: groupId,
+      media_url: null,
+      is_video: false,
+    });
+
+    if (error) {
+      toast.error("Failed to send message");
+      throw error;
+    }
+  };
+
+  const handleSendMedia = async (file: File, caption?: string) => {
+    if (!user || !groupId) return;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/posts/${Date.now()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) {
+      toast.error("Failed to upload media");
+      throw uploadError;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('media')
+      .getPublicUrl(fileName);
+    
+    const { error } = await supabase.from('posts').insert({
+      user_id: user.id,
+      media_url: publicUrl,
+      caption: caption || null,
+      is_video: file.type.startsWith('video/'),
+      group_id: groupId,
+    });
+
+    if (error) {
+      toast.error("Failed to create post");
+      throw error;
+    }
+  };
+
+  const handleSendAudio = async (audioBlob: Blob) => {
+    if (!user || !groupId) return;
+
+    const fileName = `${user.id}/audio/${Date.now()}.webm`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(fileName, audioBlob, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: 'audio/webm'
+      });
+
+    if (uploadError) {
+      toast.error("Failed to upload audio");
+      throw uploadError;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('media')
+      .getPublicUrl(fileName);
+    
+    const { error } = await supabase.from('posts').insert({
+      user_id: user.id,
+      media_url: publicUrl,
+      caption: '🎤 Voice message',
+      is_video: false,
+      group_id: groupId,
+    });
+
+    if (error) {
+      toast.error("Failed to send voice message");
+      throw error;
+    }
+
+    toast.success("Voice message sent");
+  };
+
   const getTimeAgo = (timestamp: string) => {
     const now = new Date();
     const postDate = new Date(timestamp);
@@ -348,13 +440,11 @@ export default function GroupDetail() {
       </main>
 
       {group.is_joined && (
-        <Button
-          onClick={() => navigate("/create", { state: { groupId } })}
-          size="lg"
-          className="fixed bottom-24 right-6 rounded-full h-14 w-14 shadow-[var(--shadow-elevated)]"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
+        <ChatInputBar
+          onSendMessage={handleSendMessage}
+          onSendMedia={handleSendMedia}
+          onSendAudio={handleSendAudio}
+        />
       )}
     </div>
   );
