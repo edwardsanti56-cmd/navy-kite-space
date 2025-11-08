@@ -203,7 +203,7 @@ export default function GroupDetail() {
       user_id: user.id,
       caption: message,
       group_id: groupId,
-      media_url: null,
+      media_url: '',
       is_video: false,
     });
 

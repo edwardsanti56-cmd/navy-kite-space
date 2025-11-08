@@ -74,6 +74,7 @@ export function ChatInputBar({ onSendMessage, onSendMedia, onSendAudio, disabled
       }
     } catch (error) {
       console.error('Error sending:', error);
+      toast.error("Failed to send message");
     }
   };
 
