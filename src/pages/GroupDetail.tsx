@@ -211,6 +211,8 @@ export default function GroupDetail() {
       toast.error("Failed to send message");
       throw error;
     }
+
+    queryClient.invalidateQueries({ queryKey: ["posts", groupId] });
   };
 
   const handleSendMedia = async (file: File, caption?: string) => {
@@ -247,6 +249,8 @@ export default function GroupDetail() {
       toast.error("Failed to create post");
       throw error;
     }
+
+    queryClient.invalidateQueries({ queryKey: ["posts", groupId] });
   };
 
   const handleSendAudio = async (audioBlob: Blob) => {
@@ -284,6 +288,7 @@ export default function GroupDetail() {
       throw error;
     }
 
+    queryClient.invalidateQueries({ queryKey: ["posts", groupId] });
     toast.success("Voice message sent");
   };
 
