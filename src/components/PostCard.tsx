@@ -98,21 +98,23 @@ export const PostCard = ({
       </div>
 
       {/* Media */}
-      <div className="relative bg-muted aspect-square">
-        {isVideo ? (
-          <video
-            src={mediaUrl}
-            className="w-full h-full object-cover"
-            controls
-          />
-        ) : (
-          <img
-            src={mediaUrl}
-            alt="Post content"
-            className="w-full h-full object-cover"
-          />
-        )}
-      </div>
+      {mediaUrl && (
+        <div className="relative bg-muted aspect-square">
+          {isVideo ? (
+            <video
+              src={mediaUrl}
+              className="w-full h-full object-cover"
+              controls
+            />
+          ) : (
+            <img
+              src={mediaUrl}
+              alt="Post content"
+              className="w-full h-full object-cover"
+            />
+          )}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="p-4">
