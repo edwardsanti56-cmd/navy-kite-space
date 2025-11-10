@@ -1,7 +1,7 @@
 import { GroupCard } from "@/components/GroupCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Heart } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -87,15 +87,25 @@ export default function Groups() {
         <div className="max-w-screen-lg mx-auto">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold">Groups</h1>
-            <Button
-              onClick={() => setCreateDialogOpen(true)}
-              variant="secondary"
-              size="sm"
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Create
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => navigate("/notifications")}
+                variant="ghost"
+                size="icon"
+                className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                <Heart className="h-5 w-5" />
+              </Button>
+              <Button
+                onClick={() => setCreateDialogOpen(true)}
+                variant="secondary"
+                size="sm"
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Create
+              </Button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />

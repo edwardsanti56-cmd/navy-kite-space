@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Settings, Grid3x3, Link as LinkIcon } from "lucide-react";
+import { Settings, Grid3x3, Link as LinkIcon, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,7 +17,10 @@ export default function Profile() {
         <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
           <div className="max-w-screen-lg mx-auto flex items-center justify-between">
             <h1 className="text-2xl font-bold">My Profile</h1>
-            <Skeleton className="h-10 w-10 rounded-md" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-10 w-10 rounded-md" />
+              <Skeleton className="h-10 w-10 rounded-md" />
+            </div>
           </div>
         </header>
         <main className="max-w-screen-lg mx-auto px-4 pt-6">
@@ -42,14 +45,24 @@ export default function Profile() {
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
         <div className="max-w-screen-lg mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold">My Profile</h1>
-          <Button
-            onClick={() => navigate("/edit-profile")}
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
-          >
-            <Settings className="h-6 w-6" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => navigate("/notifications")}
+              variant="ghost"
+              size="icon"
+              className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <Heart className="h-6 w-6" />
+            </Button>
+            <Button
+              onClick={() => navigate("/edit-profile")}
+              variant="ghost"
+              size="icon"
+              className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <Settings className="h-6 w-6" />
+            </Button>
+          </div>
         </div>
       </header>
 
