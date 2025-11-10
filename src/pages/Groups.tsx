@@ -1,7 +1,7 @@
 import { GroupCard } from "@/components/GroupCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Heart } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { useGroupsQuery } from "@/hooks/useGroupsQuery";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { NotificationBadge } from "@/components/NotificationBadge";
 
 export default function Groups() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -88,14 +89,7 @@ export default function Groups() {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold">Groups</h1>
             <div className="flex items-center gap-2">
-              <Button
-                onClick={() => navigate("/notifications")}
-                variant="ghost"
-                size="icon"
-                className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
-              >
-                <Heart className="h-5 w-5" />
-              </Button>
+              <NotificationBadge />
               <Button
                 onClick={() => setCreateDialogOpen(true)}
                 variant="secondary"
@@ -133,7 +127,7 @@ export default function Groups() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-3">
             {filteredGroups.map((group) => (
               <GroupCard
                 key={group.id}

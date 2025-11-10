@@ -1,18 +1,15 @@
 import { PostCard } from "@/components/PostCard";
-import { Heart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePostsQuery } from "@/hooks/usePostsQuery";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { NotificationBadge } from "@/components/NotificationBadge";
 import { useEffect } from "react";
 
 export default function Home() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: posts = [], isLoading } = usePostsQuery();
 
@@ -128,14 +125,7 @@ export default function Home() {
         <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
           <div className="max-w-screen-lg mx-auto flex items-center justify-between">
             <h1 className="text-2xl font-bold">Feed</h1>
-            <Button
-              onClick={() => navigate("/notifications")}
-              variant="ghost"
-              size="icon"
-              className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <Heart className="h-6 w-6" />
-            </Button>
+            <NotificationBadge />
           </div>
         </header>
         <main className="max-w-screen-lg mx-auto px-4 pt-4 space-y-4">
@@ -165,14 +155,7 @@ export default function Home() {
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
         <div className="max-w-screen-lg mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold">Feed</h1>
-          <Button
-            onClick={() => navigate("/notifications")}
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
-          >
-            <Heart className="h-6 w-6" />
-          </Button>
+          <NotificationBadge />
         </div>
       </header>
 

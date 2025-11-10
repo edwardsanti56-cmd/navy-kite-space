@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Users } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface GroupCardProps {
   name: string;
@@ -12,39 +12,34 @@ interface GroupCardProps {
 
 export const GroupCard = ({ name, banner, memberCount, isJoined = false, onToggle, onClick }: GroupCardProps) => {
   return (
-    <div className="bg-card rounded-xl overflow-hidden shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-medium)] transition-all hover:scale-[1.02]">
-      <div 
-        className="aspect-video bg-muted relative cursor-pointer"
-        onClick={onClick}
-      >
-        <img
-          src={banner}
-          alt={name}
-          className="w-full h-full object-cover"
-        />
-      </div>
-      <div className="p-4">
-        <h3 
-          className="font-bold text-foreground mb-1 line-clamp-1 cursor-pointer hover:underline"
-          onClick={onClick}
-        >
+    <div 
+      className="bg-card rounded-xl shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-medium)] transition-all cursor-pointer p-4 flex items-center gap-4"
+      onClick={onClick}
+    >
+      <Avatar className="h-14 w-14 ring-2 ring-accent/20">
+        <AvatarImage src={banner} alt={name} />
+        <AvatarFallback>{name[0]}</AvatarFallback>
+      </Avatar>
+      
+      <div className="flex-1 min-w-0">
+        <h3 className="font-bold text-foreground line-clamp-1">
           {name}
         </h3>
-        <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
-          <Users className="h-4 w-4" />
-          <span>{memberCount.toLocaleString()} members</span>
-        </div>
-        <Button
-          className="w-full"
-          variant={isJoined ? "outline" : "default"}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle?.();
-          }}
-        >
-          {isJoined ? "Joined" : "Join Group"}
-        </Button>
+        <p className="text-sm text-muted-foreground">
+          {memberCount.toLocaleString()} members
+        </p>
       </div>
+
+      <Button
+        variant={isJoined ? "outline" : "default"}
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle?.();
+        }}
+      >
+        {isJoined ? "Joined" : "Join"}
+      </Button>
     </div>
   );
 };
