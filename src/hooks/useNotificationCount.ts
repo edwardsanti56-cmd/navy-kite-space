@@ -15,12 +15,12 @@ export const useNotificationCount = () => {
       .channel('notification-updates')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'likes' },
+        { event: 'INSERT', schema: 'public', table: 'likes' },
         () => queryClient.invalidateQueries({ queryKey: ["notification-count", user.id] })
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'comments' },
+        { event: 'INSERT', schema: 'public', table: 'comments' },
         () => queryClient.invalidateQueries({ queryKey: ["notification-count", user.id] })
       )
       .subscribe();

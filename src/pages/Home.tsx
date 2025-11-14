@@ -6,12 +6,15 @@ import { usePostsQuery } from "@/hooks/usePostsQuery";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NotificationBadge } from "@/components/NotificationBadge";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { CommentDialog } from "@/components/CommentDialog";
 
 export default function Home() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: posts = [], isLoading } = usePostsQuery();
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
   // Realtime subscription for precise invalidation
   useEffect(() => {
@@ -25,6 +28,11 @@ export default function Home() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'likes' },
+        () => queryClient.invalidateQueries({ queryKey: ["posts", undefined] })
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comments' },
         () => queryClient.invalidateQueries({ queryKey: ["posts", undefined] })
       )
       .subscribe();
@@ -108,6 +116,57 @@ export default function Home() {
     },
   });
 
+  const commentMutation = useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+      const { error } = await supabase
+        .from("comments")
+        .insert({ post_id: postId, user_id: user?.id, content });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts", undefined] });
+      setCommentDialogOpen(false);
+      toast.success("Comment added");
+    },
+    onError: () => {
+      toast.error("Failed to add comment");
+    },
+  });
+
+  const handleComment = (postId: string) => {
+    setSelectedPostId(postId);
+    setCommentDialogOpen(true);
+  };
+
+  const handleShare = async (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const shareData = {
+      title: `Post by ${post.author.username}`,
+      text: post.caption || "Check out this post!",
+      url: window.location.origin + `/post/${postId}`,
+    };
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        toast.success("Post shared");
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          toast.error("Failed to share");
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        toast.success("Link copied to clipboard");
+      } catch {
+        toast.error("Failed to copy link");
+      }
+    }
+  };
+
   const getTimeAgo = (timestamp: string) => {
     const now = new Date();
     const postDate = new Date(timestamp);
@@ -183,11 +242,24 @@ export default function Home() {
                 currentUserId={user?.id}
                 onLike={() => likeMutation.mutate({ postId: post.id, isLiked: post.isLiked })}
                 onDelete={() => deletePostMutation.mutate(post.id)}
+                onComment={handleComment}
+                onShare={handleShare}
               />
             ))}
           </div>
         )}
       </main>
+
+      <CommentDialog
+        open={commentDialogOpen}
+        onOpenChange={setCommentDialogOpen}
+        onSubmit={(content) => {
+          if (selectedPostId) {
+            commentMutation.mutate({ postId: selectedPostId, content });
+          }
+        }}
+        isSubmitting={commentMutation.isPending}
+      />
     </div>
   );
 }
