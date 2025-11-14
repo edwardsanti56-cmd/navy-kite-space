@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { usePostsQuery } from "@/hooks/usePostsQuery";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,12 +21,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ChatInputBar } from "@/components/ChatInputBar";
+import { CommentDialog } from "@/components/CommentDialog";
 
 export default function GroupDetail() {
   const navigate = useNavigate();
   const { groupId } = useParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
   const { data: group, isLoading: groupLoading } = useQuery({
     queryKey: ["group", groupId],
@@ -55,6 +58,11 @@ export default function GroupDetail() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'likes' },
+        () => queryClient.invalidateQueries({ queryKey: ["posts", groupId] })
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comments' },
         () => queryClient.invalidateQueries({ queryKey: ["posts", groupId] })
       )
       .on(
@@ -195,6 +203,57 @@ export default function GroupDetail() {
       toast.error("Failed to delete group");
     },
   });
+
+  const commentMutation = useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+      const { error } = await supabase
+        .from("comments")
+        .insert({ post_id: postId, user_id: user?.id, content });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts", groupId] });
+      setCommentDialogOpen(false);
+      toast.success("Comment added");
+    },
+    onError: () => {
+      toast.error("Failed to add comment");
+    },
+  });
+
+  const handleComment = (postId: string) => {
+    setSelectedPostId(postId);
+    setCommentDialogOpen(true);
+  };
+
+  const handleShare = async (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const shareData = {
+      title: `Post by ${post.author.username}`,
+      text: post.caption || "Check out this post!",
+      url: window.location.origin + `/post/${postId}`,
+    };
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        toast.success("Post shared");
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          toast.error("Failed to share");
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        toast.success("Link copied to clipboard");
+      } catch {
+        toast.error("Failed to copy link");
+      }
+    }
+  };
 
   const handleSendMessage = async (message: string) => {
     if (!user || !groupId) return;
@@ -438,6 +497,8 @@ export default function GroupDetail() {
                 currentUserId={user?.id}
                 onLike={() => likeMutation.mutate({ postId: post.id, isLiked: post.isLiked })}
                 onDelete={() => deletePostMutation.mutate(post.id)}
+                onComment={handleComment}
+                onShare={handleShare}
               />
             ))
           )}
@@ -451,6 +512,17 @@ export default function GroupDetail() {
           onSendAudio={handleSendAudio}
         />
       )}
+
+      <CommentDialog
+        open={commentDialogOpen}
+        onOpenChange={setCommentDialogOpen}
+        onSubmit={(content) => {
+          if (selectedPostId) {
+            commentMutation.mutate({ postId: selectedPostId, content });
+          }
+        }}
+        isSubmitting={commentMutation.isPending}
+      />
     </div>
   );
 }

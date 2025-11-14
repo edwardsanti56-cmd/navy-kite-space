@@ -29,6 +29,8 @@ interface PostCardProps {
   isLiked?: boolean;
   onLike?: (postId: string, isLiked: boolean) => void;
   onDelete?: (postId: string) => void;
+  onComment?: (postId: string) => void;
+  onShare?: (postId: string) => void;
 }
 
 export const PostCard = ({
@@ -46,6 +48,8 @@ export const PostCard = ({
   isLiked = false,
   onLike,
   onDelete,
+  onComment,
+  onShare,
 }: PostCardProps) => {
   const handleLike = () => {
     if (onLike) {
@@ -130,10 +134,20 @@ export const PostCard = ({
           >
             <Heart className={cn("h-6 w-6", isLiked && "fill-current")} />
           </Button>
-          <Button variant="ghost" size="icon" className="hover:scale-110 transition-transform">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => onComment?.(postId)}
+            className="hover:scale-110 transition-transform"
+          >
             <MessageCircle className="h-6 w-6" />
           </Button>
-          <Button variant="ghost" size="icon" className="hover:scale-110 transition-transform">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => onShare?.(postId)}
+            className="hover:scale-110 transition-transform"
+          >
             <Share2 className="h-6 w-6" />
           </Button>
         </div>
