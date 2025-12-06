@@ -84,17 +84,16 @@ export default function Groups() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
+      <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
         <div className="max-w-screen-lg mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold">Groups</h1>
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-semibold text-foreground">Groups</h1>
             <div className="flex items-center gap-2">
               <NotificationBadge />
               <Button
                 onClick={() => setCreateDialogOpen(true)}
-                variant="secondary"
                 size="sm"
-                className="gap-2"
+                className="gap-1 bg-accent text-accent-foreground hover:bg-accent/90"
               >
                 <Plus className="h-4 w-4" />
                 Create
@@ -102,10 +101,10 @@ export default function Groups() {
             </div>
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search for groups..."
-              className="pl-10 bg-card text-foreground border-none"
+              className="pl-9 bg-secondary border-none text-foreground placeholder:text-muted-foreground"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

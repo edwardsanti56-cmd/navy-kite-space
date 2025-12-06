@@ -181,24 +181,21 @@ export default function Home() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
+        <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
           <div className="max-w-screen-lg mx-auto flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Feed</h1>
+            <h1 className="text-xl font-semibold text-foreground">Feed</h1>
             <NotificationBadge />
           </div>
         </header>
-        <main className="max-w-screen-lg mx-auto px-4 pt-4 space-y-4">
+        <main className="max-w-screen-lg mx-auto px-0 pt-2 space-y-0">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-card rounded-xl overflow-hidden shadow-[var(--shadow-soft)]">
-              <div className="p-4 flex items-center gap-3">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
+            <div key={i} className="bg-card border-b border-border overflow-hidden">
+              <div className="p-3 flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-4 w-24" />
               </div>
               <Skeleton className="w-full aspect-square" />
-              <div className="p-4 space-y-2">
+              <div className="p-3 space-y-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-3/4" />
               </div>
@@ -211,20 +208,20 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-[var(--shadow-medium)]">
+      <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
         <div className="max-w-screen-lg mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Feed</h1>
+          <h1 className="text-xl font-semibold text-foreground">Feed</h1>
           <NotificationBadge />
         </div>
       </header>
 
-      <main className="max-w-screen-lg mx-auto px-4 pt-4">
+      <main className="max-w-screen-lg mx-auto px-0 pt-0">
         {posts.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No posts yet. Start creating!</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-0">
             {posts.map((post) => (
               <PostCard
                 key={post.id}

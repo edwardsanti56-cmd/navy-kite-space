@@ -11,6 +11,7 @@ import Groups from "./pages/Groups";
 import GroupDetail from "./pages/GroupDetail";
 import Create from "./pages/Create";
 import Profile from "./pages/Profile";
+import UserProfile from "./pages/UserProfile";
 import EditProfile from "./pages/EditProfile";
 import Auth from "./pages/Auth";
 import Notifications from "./pages/Notifications";
@@ -88,6 +89,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Notifications />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/user/:userId"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
                 </ProtectedRoute>
               }
             />
