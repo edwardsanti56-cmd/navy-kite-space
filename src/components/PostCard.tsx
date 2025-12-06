@@ -2,6 +2,7 @@ import { Heart, MessageCircle, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,27 +52,34 @@ export const PostCard = ({
   onComment,
   onShare,
 }: PostCardProps) => {
+  const navigate = useNavigate();
+  
   const handleLike = () => {
     if (onLike) {
       onLike(postId, isLiked);
     }
   };
 
+  const handleProfileClick = () => {
+    if (currentUserId === userId) {
+      navigate("/profile");
+    } else {
+      navigate(`/user/${userId}`);
+    }
+  };
+
   const isOwner = currentUserId && userId === currentUserId;
 
   return (
-    <div className="bg-card rounded-xl overflow-hidden mb-4 shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-medium)] transition-shadow">
+    <div className="bg-card border border-border overflow-hidden mb-4">
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 ring-2 ring-accent/20">
+      <div className="flex items-center justify-between p-3">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={handleProfileClick}>
+          <Avatar className="h-8 w-8 ring-2 ring-accent/30">
             <AvatarImage src={avatar} alt={username} />
             <AvatarFallback>{username[0]}</AvatarFallback>
           </Avatar>
-          <div>
-            <p className="font-semibold text-foreground">{username}</p>
-            <p className="text-sm text-muted-foreground">{timestamp}</p>
-          </div>
+          <p className="font-semibold text-sm text-foreground">{username}</p>
         </div>
         {isOwner && onDelete && (
           <AlertDialog>

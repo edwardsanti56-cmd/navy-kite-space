@@ -13,7 +13,7 @@ export const NotificationBadge = () => {
         onClick={() => navigate("/notifications")}
         variant="ghost"
         size="icon"
-        className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
+        className="text-foreground"
       >
         <Heart className="h-6 w-6" />
       </Button>

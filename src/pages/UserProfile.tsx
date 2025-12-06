@@ -1,27 +1,53 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Settings, Grid3x3, Link as LinkIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { Grid3x3, Link as LinkIcon, ArrowLeft } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProfileQuery } from "@/hooks/useProfileQuery";
-import { NotificationBadge } from "@/components/NotificationBadge";
+import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-export default function Profile() {
+export default function UserProfile() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { data, isLoading } = useProfileQuery();
+  const { userId } = useParams<{ userId: string }>();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user-profile", userId],
+    queryFn: async () => {
+      if (!userId) throw new Error("No user ID provided");
+
+      const [profileData, postsData] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .single(),
+        supabase
+          .from("posts")
+          .select("id, media_url, is_video")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (profileData.error) throw profileData.error;
+
+      return {
+        profile: profileData.data,
+        posts: postsData.data || [],
+        postCount: postsData.data?.length || 0,
+      };
+    },
+    enabled: !!userId,
+  });
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-20">
         <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
-          <div className="max-w-screen-lg mx-auto flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-foreground">Profile</h1>
-            <div className="flex items-center gap-1">
-              <NotificationBadge />
-              <Skeleton className="h-9 w-9 rounded-md" />
-            </div>
+          <div className="max-w-screen-lg mx-auto flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <Skeleton className="h-6 w-32" />
           </div>
         </header>
         <main className="max-w-screen-lg mx-auto px-4 pt-6">
@@ -37,23 +63,16 @@ export default function Profile() {
     );
   }
 
-  const { profile, posts, stats } = data || {};
+  const { profile, posts, postCount } = data || {};
 
   return (
     <div className="min-h-screen bg-background pb-20">
       <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
-        <div className="max-w-screen-lg mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-foreground">{profile?.username}</h1>
-          <div className="flex items-center gap-2">
-            <NotificationBadge />
-            <Button
-              onClick={() => navigate("/edit-profile")}
-              variant="ghost"
-              size="icon"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
-          </div>
+        <div className="max-w-screen-lg mx-auto flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-lg font-semibold text-foreground">{profile?.username}</h1>
         </div>
       </header>
 
@@ -61,15 +80,15 @@ export default function Profile() {
         <div className="flex items-center gap-6 mb-6">
           <Avatar className="h-20 w-20 ring-2 ring-border">
             <AvatarImage
-              src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+              src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`}
               alt={profile?.username}
             />
             <AvatarFallback>{profile?.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 mb-2">
               <div className="text-center">
-                <div className="text-lg font-semibold text-foreground">{stats?.posts || 0}</div>
+                <div className="text-lg font-semibold text-foreground">{postCount}</div>
                 <div className="text-sm text-muted-foreground">posts</div>
               </div>
             </div>
