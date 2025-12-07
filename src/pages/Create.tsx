@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ImagePlus, Video, X, Upload } from "lucide-react";
-import { useState, useEffect } from "react";
+import { X, Upload } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { UploadProgressToast } from "@/components/UploadProgressToast";
+import { useUploadWithProgress } from "@/hooks/useUploadWithProgress";
 
 export default function Create() {
   const navigate = useNavigate();
@@ -15,8 +17,10 @@ export default function Create() {
   const [caption, setCaption] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [groupName, setGroupName] = useState<string>("");
+  const toastIdRef = useRef<string | number | null>(null);
+  
+  const { progress, isUploading, uploadFile, cancelUpload, resetUpload } = useUploadWithProgress();
 
   useEffect(() => {
     if (groupId) {
@@ -30,6 +34,51 @@ export default function Create() {
         });
     }
   }, [groupId]);
+
+  // Update toast with progress
+  useEffect(() => {
+    if (isUploading && selectedFile) {
+      if (!toastIdRef.current) {
+        toastIdRef.current = toast.custom(
+          () => (
+            <UploadProgressToast 
+              progress={progress} 
+              fileName={selectedFile.name}
+              onCancel={handleCancelUpload}
+            />
+          ),
+          { 
+            duration: Infinity,
+            className: "bg-card border border-border"
+          }
+        );
+      } else {
+        toast.custom(
+          () => (
+            <UploadProgressToast 
+              progress={progress} 
+              fileName={selectedFile.name}
+              onCancel={handleCancelUpload}
+            />
+          ),
+          { 
+            id: toastIdRef.current,
+            duration: Infinity,
+            className: "bg-card border border-border"
+          }
+        );
+      }
+    }
+  }, [progress, isUploading, selectedFile]);
+
+  const handleCancelUpload = () => {
+    cancelUpload();
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current);
+      toastIdRef.current = null;
+    }
+    toast.error("Upload cancelled");
+  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -46,33 +95,29 @@ export default function Create() {
       return;
     }
 
-    setUploading(true);
-
     try {
-      // Upload file to Supabase Storage
+      // Upload file with progress tracking
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${user.id}/posts/${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(fileName, selectedFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      const result = await uploadFile('media', fileName, selectedFile);
+      
+      if (!result) {
+        throw new Error("Upload failed");
+      }
 
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('media')
-        .getPublicUrl(fileName);
+      // Dismiss progress toast
+      if (toastIdRef.current) {
+        toast.dismiss(toastIdRef.current);
+        toastIdRef.current = null;
+      }
       
       // Create post in database
       const { error } = await supabase
         .from('posts')
         .insert({
           user_id: user.id,
-          media_url: publicUrl,
+          media_url: result.publicUrl,
           caption: caption || null,
           is_video: selectedFile.type.startsWith('video/'),
           group_id: groupId || null,
@@ -83,10 +128,17 @@ export default function Create() {
       toast.success("Post shared successfully!");
       navigate(groupId ? `/groups/${groupId}` : "/");
     } catch (error: any) {
-      toast.error("Failed to share post: " + error.message);
+      if (error.message !== "Upload cancelled") {
+        toast.error("Failed to share post: " + error.message);
+      }
       console.error('Error creating post:', error);
-    } finally {
-      setUploading(false);
+      
+      // Dismiss progress toast on error
+      if (toastIdRef.current) {
+        toast.dismiss(toastIdRef.current);
+        toastIdRef.current = null;
+      }
+      resetUpload();
     }
   };
 
@@ -100,9 +152,9 @@ export default function Create() {
               onClick={handleShare}
               variant="secondary"
               className="font-semibold"
-              disabled={!selectedFile || uploading}
+              disabled={!selectedFile || isUploading}
             >
-              {uploading ? "Sharing..." : "Share"}
+              {isUploading ? "Uploading..." : "Share"}
             </Button>
           </div>
           {groupName && (
