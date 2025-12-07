@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { NotificationBadge } from "@/components/NotificationBadge";
 import { useEffect, useState } from "react";
 import { CommentDialog } from "@/components/CommentDialog";
+import { StoriesCarousel } from "@/components/StoriesCarousel";
 
 export default function Home() {
   const { user } = useAuth();
@@ -214,6 +215,8 @@ export default function Home() {
           <NotificationBadge />
         </div>
       </header>
+
+      <StoriesCarousel />
 
       <main className="max-w-screen-lg mx-auto px-0 pt-0">
         {posts.length === 0 ? (
