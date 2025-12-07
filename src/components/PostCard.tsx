@@ -1,8 +1,9 @@
-import { Heart, MessageCircle, Share2, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Share2, Trash2, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { useRef, useEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +54,43 @@ export const PostCard = ({
   onShare,
 }: PostCardProps) => {
   const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
+
+  // Auto-play video when in view, pause when out of view
+  useEffect(() => {
+    if (!isVideo || !videoRef.current) return;
+
+    const video = videoRef.current;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            video.play().catch(() => {
+              // Auto-play was prevented, user needs to interact first
+            });
+          } else {
+            video.pause();
+          }
+        });
+      },
+      { threshold: 0.5 } // 50% of video must be visible
+    );
+
+    observer.observe(video);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isVideo]);
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
   
   const handleLike = () => {
     if (onLike) {
@@ -113,11 +151,28 @@ export const PostCard = ({
       {mediaUrl && (
         <div className="relative bg-muted aspect-square">
           {isVideo ? (
-            <video
-              src={mediaUrl}
-              className="w-full h-full object-cover"
-              controls
-            />
+            <>
+              <video
+                ref={videoRef}
+                src={mediaUrl}
+                className="w-full h-full object-cover"
+                loop
+                muted={isMuted}
+                playsInline
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleMute}
+                className="absolute bottom-3 right-3 bg-background/60 hover:bg-background/80 rounded-full h-8 w-8"
+              >
+                {isMuted ? (
+                  <VolumeX className="h-4 w-4 text-foreground" />
+                ) : (
+                  <Volume2 className="h-4 w-4 text-foreground" />
+                )}
+              </Button>
+            </>
           ) : (
             <img
               src={mediaUrl}
